@@ -1,0 +1,44 @@
+services:
+  go2_cyclonedds:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: go2_cyclonedds
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - CYCLONEDDS_URI=file:///ros2_ws/cyclonedds.xml
+      - ROS_DOMAIN_ID=0
+      - CYCLONE_IFACE=${CYCLONE_IFACE:-enP8p1s0}
+      - GO2_IP=${GO2_IP:-192.168.123.161}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - DISPLAY=${DISPLAY:-}
+    volumes:
+      # CycloneDDS config template (rendered at startup by entrypoint.sh)
+      - ../docker/cyclonedds.xml.template:/ros2_ws/cyclonedds.xml.template:ro
+      # X11 forwarding (for rviz2 if needed)
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+    # Host networking required for DDS multicast discovery
+    network_mode: host
+    # Privileged for hardware access (joystick, CAN, etc.)
+    privileged: true
+    devices:
+      - /dev/input:/dev/input
+    restart: unless-stopped
+    # healthcheck disabled — ros2 node list creates DDS participants that destabilize bonds
+    # healthcheck:
+    #   test: ["CMD", "bash", "-c", "pgrep -f go2_driver_node"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 30s
+    # Override CMD to pass launch arguments
+    command: >
+      ros2 launch go2_robot_sdk robot.launch.py
+        rviz2:=${RVIZ:-true}
+        foxglove:=${FOXGLOVE:-true}
+        slam:=${SLAM:-true}
+        nav2:=${NAV2:-true}
+        joystick:=${JOYSTICK:-false}
+        teleop:=${TELEOP:-false}
+        enable_cmd_vel:=${ENABLE_CMD_VEL:-false}

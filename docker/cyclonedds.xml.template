@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- 
+  CycloneDDS configuration for Unitree Go2 EDU on Jetson Orin NX
+-->
+<CycloneDDS xmlns="https://cdds.io/config"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="https://cdds.io/config https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/master/etc/cyclonedds.xsd">
+  <Domain id="any">
+    <General>
+      <Interfaces>
+        <!-- Bind to BOTH the robot ethernet (enP8p1s0) and local loopback (lo) so Host RViz works -->
+        <NetworkInterface name="${CYCLONE_IFACE}" priority="default" multicast="true" />
+        <NetworkInterface name="lo" priority="default" multicast="true" />
+      </Interfaces>
+      <AllowMulticast>true</AllowMulticast>
+      <MaxMessageSize>65500B</MaxMessageSize>
+      <FragmentSize>4000B</FragmentSize>
+    </General>
+    <Discovery>
+      <Peers>
+        <!-- Explicitly discover the Go2 internal computer -->
+        <Peer address="${GO2_IP}"/>
+      </Peers>
+      <!-- Go2 domain usually uses ID 0, discovery UDP port 7400 -->
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>120</MaxAutoParticipantIndex>
+    </Discovery>
+    <Internal>
+      <!-- Optimizations for high-bandwidth Lidar payload -->
+      <Watermarks>
+        <WhcHigh>500kB</WhcHigh>
+      </Watermarks>
+    </Internal>
+  </Domain>
+</CycloneDDS>
