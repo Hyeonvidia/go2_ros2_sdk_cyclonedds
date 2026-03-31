@@ -140,6 +140,24 @@ def generate_launch_description():
         )
     )
 
+    # TTS Node (speech_processor)
+    nodes.append(
+        Node(
+            package='speech_processor',
+            executable='tts_node',
+            name='tts_node',
+            output='screen',
+            parameters=[{
+                'api_key': os.getenv('ELEVENLABS_API_KEY', ''),
+                'provider': 'elevenlabs',
+                'voice_name': 'XrExE9yKIg1WjnnlVkGX',
+                'local_playback': False,
+                'use_cache': True,
+                'audio_quality': 'standard',
+            }],
+        )
+    )
+
     # Optional: Joystick
     nodes.append(
         Node(

@@ -16,6 +16,8 @@ import json
 import os
 import time
 import hashlib
+import datetime
+import random
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
@@ -25,9 +27,10 @@ from pydub import AudioSegment
 from pydub.playback import play
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile
 import requests
 from std_msgs.msg import String
-from go2_interfaces.msg import WebRtcReq
+from unitree_api.msg import Request, RequestHeader, RequestIdentity, RequestLease, RequestPolicy
 
 
 class AudioFormat(Enum):
@@ -257,9 +260,6 @@ class EnhancedTTSNode(Node):
         # Setup subscriptions and publishers
         self._setup_communication()
         
-        # RTC topic constants (imported from domain)
-        self.RTC_TOPIC = {"AUDIO_HUB_REQ": 1003}  # Fallback if import fails
-        
         # Log initialization
         self._log_initialization()
     
@@ -317,13 +317,10 @@ class EnhancedTTSNode(Node):
         self.subscription = self.create_subscription(
             String, "/tts", self.tts_callback, 10
         )
-        
-        self.audio_pub = self.create_publisher(WebRtcReq, "/webrtc_req", 10)
-        
-        # Service for cache management
-        # self.cache_service = self.create_service(
-        #     Empty, "clear_tts_cache", self.clear_cache_callback
-        # )
+
+        # CycloneDDS: publish to Go2 audiohub via unitree_api/Request
+        self.audio_pub = self.create_publisher(
+            Request, 'api/audiohub/request', QoSProfile(depth=10))
     
     def tts_callback(self, msg: String) -> None:
         """Handle incoming TTS requests"""
@@ -427,12 +424,19 @@ class EnhancedTTSNode(Node):
             self.get_logger().error(f"❌ Robot playback error: {str(e)}")
     
     def _send_audio_command(self, api_id: int, parameter: str) -> None:
-        """Send audio command to robot"""
-        req = WebRtcReq()
-        req.api_id = api_id
-        req.priority = 0
+        """Send audio command to robot via CycloneDDS."""
+        req = Request()
+        req.header = RequestHeader()
+        req.header.identity = RequestIdentity()
+        req.header.identity.id = int(datetime.datetime.now().timestamp() * 1000 % 2147483648) + random.randint(0, 999)
+        req.header.identity.api_id = api_id
+        req.header.lease = RequestLease()
+        req.header.lease.id = 0
+        req.header.policy = RequestPolicy()
+        req.header.policy.priority = 0
+        req.header.policy.noreply = False
         req.parameter = parameter
-        req.topic = self.RTC_TOPIC["AUDIO_HUB_REQ"]
+        req.binary = []
         self.audio_pub.publish(req)
     
     def _log_initialization(self) -> None:
