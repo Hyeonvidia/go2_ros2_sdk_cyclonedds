@@ -11,6 +11,7 @@
 #   make clean     — Remove Docker image and build artifacts
 #   make rebuild   — Force rebuild (no cache)
 #   make safe           — Start in read-only mode (robot won't move)
+#   make say MSG="hello" — Make robot speak (requires ElevenLabs API key)
 #   make setup-network  — Add static IP for Go2 communication
 #   make check-network  — Check network status and Go2 connectivity
 # ==============================================================================
@@ -18,7 +19,7 @@
 COMPOSE := docker compose -f docker/compose.yml
 CONTAINER := go2_cyclonedds
 
-.PHONY: build up down logs shell topics clean rebuild safe setup-network check-network
+.PHONY: build up down logs shell topics clean rebuild safe say setup-network check-network
 
 build:
 	$(COMPOSE) build
@@ -48,6 +49,10 @@ shell:
 topics:
 	docker exec -it $(CONTAINER) bash -c \
 		"source /ros2_ws/install/setup.bash && ros2 topic list"
+
+say:
+	@docker exec $(CONTAINER) bash -c \
+		"source /ros2_ws/install/setup.bash && ros2 topic pub /tts std_msgs/msg/String \"data: '$(MSG)'\" --once"
 
 setup-network:
 	sudo bash scripts/setup_network.sh

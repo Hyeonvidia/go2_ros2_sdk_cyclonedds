@@ -40,10 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-pcl-ros \
     ros-humble-pcl-conversions \
     libpcl-dev \
-    # Audio for speech_processor
+    # Audio
     ffmpeg \
-    flac \
-    portaudio19-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Foxglove bridge (not in apt for ARM64, install via pip)
@@ -51,7 +49,7 @@ RUN pip3 install --no-cache-dir foxglove-bridge 2>/dev/null || \
     echo 'WARN: foxglove-bridge pip install failed, skipping (optional)'
 
 # Python deps for speech_processor and lidar_processor
-RUN pip3 install --no-cache-dir requests pydub wasmtime open3d SpeechRecognition
+RUN pip3 install --no-cache-dir requests pydub wasmtime open3d
 
 # ---------- Stage 2: rosdep from manifests only (cached unless deps change) ----------
 FROM deps AS rosdep

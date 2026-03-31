@@ -140,7 +140,7 @@ def generate_launch_description():
         )
     )
 
-    # TTS Node (speech_processor)
+    # TTS Node (speech_processor — speaking only, no cache)
     nodes.append(
         Node(
             package='speech_processor',
@@ -152,7 +152,7 @@ def generate_launch_description():
                 'provider': 'elevenlabs',
                 'voice_name': 'XrExE9yKIg1WjnnlVkGX',
                 'local_playback': False,
-                'use_cache': True,
+                'use_cache': False,
                 'audio_quality': 'standard',
             }],
         )
