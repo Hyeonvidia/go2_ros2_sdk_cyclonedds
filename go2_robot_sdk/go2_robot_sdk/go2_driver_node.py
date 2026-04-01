@@ -58,11 +58,12 @@ class Go2DriverNode(Node):
 
     # Sport API command IDs
     SPORT_CMD_MOVE = 1008
+    SPORT_CMD_BALANCE_STAND = 1002
 
     # Velocity safety limits (m/s and rad/s)
-    MAX_VX = 1.5    # forward/backward
-    MAX_VY = 0.5    # lateral
-    MAX_WZ = 1.5    # yaw rate
+    MAX_VX = 0.8    # forward/backward
+    MAX_VY = 0.3    # lateral
+    MAX_WZ = 1.0    # yaw rate
 
     # Minimum interval between commands (seconds) — 20 Hz
     CMD_VEL_MIN_INTERVAL = 0.05
@@ -138,6 +139,13 @@ class Go2DriverNode(Node):
             self.create_subscription(
                 Twist, 'cmd_vel', self._on_cmd_vel, QoSProfile(depth=10))
             self.get_logger().warn('cmd_vel forwarding ENABLED — robot will move!')
+            # Auto-activate sport mode once robot data is received
+            self._sport_mode_activated = False
+            self._sport_mode_timer = None
+        else:
+            self.get_logger().warn(
+                'cmd_vel forwarding DISABLED. If Nav2 is running, '
+                'the robot will NOT move. Set enable_cmd_vel:=true to enable.')
 
         # --- Health monitoring ---
         self._got_data = False
@@ -161,6 +169,11 @@ class Go2DriverNode(Node):
         if not self._got_data:
             self._got_data = True
             self.get_logger().info('Receiving data from Go2!')
+            # Activate sport mode automatically after first data received
+            if self._enable_cmd_vel and not self._sport_mode_activated:
+                self._sport_mode_activated = True
+                self._sport_mode_timer = self.create_timer(
+                    2.0, self._activate_sport_mode)
 
         now = self.get_clock().now().to_msg()
 
@@ -279,25 +292,37 @@ class Go2DriverNode(Node):
 
         self._publish_move_command(vx, vy, wz)
 
-    def _publish_move_command(self, vx: float, vy: float, wz: float) -> None:
-        """Build and publish a unitree_api/Request for Move (API 1008)."""
+    def _activate_sport_mode(self) -> None:
+        """Send BalanceStand command once to activate sport mode for API control."""
+        if self._pub_sport_request is None:
+            return
+        self.get_logger().info('Activating sport mode (BalanceStand)...')
+        self._publish_sport_command(self.SPORT_CMD_BALANCE_STAND, '{}')
+        # Cancel the timer — one-shot only
+        if self._sport_mode_timer is not None:
+            self._sport_mode_timer.cancel()
+            self._sport_mode_timer = None
+
+    def _publish_sport_command(self, api_id: int, parameter: str) -> None:
+        """Build and publish a unitree_api/Request for any Sport API command."""
         req = Request()
         req.header = RequestHeader()
         req.header.identity = RequestIdentity()
         req.header.identity.id = self._generate_request_id()
-        req.header.identity.api_id = self.SPORT_CMD_MOVE
+        req.header.identity.api_id = api_id
         req.header.lease = RequestLease()
         req.header.lease.id = 0
         req.header.policy = RequestPolicy()
         req.header.policy.priority = 0
         req.header.policy.noreply = False
-        req.parameter = json.dumps({
-            'x': round(vx, 3),
-            'y': round(vy, 3),
-            'z': round(wz, 3),
-        })
+        req.parameter = parameter
         req.binary = []
         self._pub_sport_request.publish(req)
+
+    def _publish_move_command(self, vx: float, vy: float, wz: float) -> None:
+        """Build and publish a unitree_api/Request for Move (API 1008)."""
+        param = json.dumps({'x': round(vx, 3), 'y': round(vy, 3), 'z': round(wz, 3)})
+        self._publish_sport_command(self.SPORT_CMD_MOVE, param)
 
     @staticmethod
     def _generate_request_id() -> int:

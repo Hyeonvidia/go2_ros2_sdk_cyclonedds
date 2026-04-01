@@ -98,7 +98,7 @@ def generate_launch_description():
                 'max_height': 0.5,
                 'angle_min': -3.14159,
                 'angle_max': 3.14159,
-                'angle_increment': 0.0174533,
+                'angle_increment': 0.00872665,  # 0.5 degree (720 bins)
                 'scan_time': 0.033,
                 'range_min': 0.35,
                 'range_max': 20.0,
@@ -107,24 +107,9 @@ def generate_launch_description():
             }],
         ),
 
-        # C++ point cloud aggregator (subscribes to Go2 native /utlidar/cloud)
-        Node(
-            package='lidar_processor_cpp',
-            executable='pointcloud_aggregator_node',
-            name='pointcloud_aggregator',
-            output='screen',
-            remappings=[
-                ('/pointcloud/aggregated', '/go2/cloud'),
-            ],
-            parameters=[{
-                'max_range': 20.0,
-                'min_range': 0.1,
-                'height_filter_min': 0.05,
-                'height_filter_max': 3.0,
-                'downsample_rate': 2,
-                'publish_rate': 10.0
-            }],
-        ),
+        # NOTE: pointcloud_aggregator_node removed — SOR filter was already disabled
+        # for ARM performance, and pointcloud_to_laserscan handles range/height
+        # filtering. Removing saves CPU on Jetson Orin NX.
     ]
 
     # Optional: RViz2
@@ -154,6 +139,37 @@ def generate_launch_description():
                 'local_playback': False,
                 'use_cache': False,
                 'audio_quality': 'standard',
+            }],
+        )
+    )
+
+    # Nav2 status announcements (speech feedback, only when Nav2 is active)
+    nodes.append(
+        Node(
+            package='speech_processor',
+            executable='nav2_status_node',
+            name='nav2_status_node',
+            output='screen',
+            condition=IfCondition(LaunchConfiguration('nav2')),
+            parameters=[{
+                'check_interval': 5.0,
+                'debounce_sec': 10.0,
+                'language': 'ko',
+            }],
+        )
+    )
+
+    # Waypoint navigation (only when Nav2 is active)
+    nodes.append(
+        Node(
+            package='speech_processor',
+            executable='waypoint_nav_node',
+            name='waypoint_nav_node',
+            output='screen',
+            condition=IfCondition(LaunchConfiguration('nav2')),
+            parameters=[{
+                'waypoints_file': '',
+                'announce_progress': True,
             }],
         )
     )
